@@ -1,3 +1,3 @@
-# Remove border effect from DOD
+# Remove bowl effect from DOD
 
-**Still under development...**
+**Still under development...** 
