@@ -71,11 +71,11 @@ class BowlEffectAlgorithm(QgsProcessingAlgorithm):
 
     INPUT = 'INPUT'
     OUTPUT_TEXTURE_FOLDER = 'OUTPUT_TEXTURE_FOLDER'
-    OUTPUT_TEXTURE0 = 'OUTPUT_TEXTURE0'
+    OUTPUT_DOD_FILTERED = 'OUTPUT_DOD_FILTERED'
     OUTPUT_CLEANED = 'OUTPUT_CLEANED'
     OUTPUT_BSPLINE = 'OUTPUT_BSPLINE'
     OUTPUT_SAMPLE_POINTS = 'OUTPUT_SAMPLE_POINTS'
-    OUTPUT_TEXTURE_0_EXTRACT = 'OUTPUT_TEXTURE_0_EXTRACT'
+    OUTPUT_DOD_FILTERED_EXTRACT = 'OUTPUT_DOD_FILTERED_EXTRACT'
     OUTPUT_POLY = 'OUTPUT_POLY'
 
     def initAlgorithm(self, config):
@@ -104,7 +104,7 @@ class BowlEffectAlgorithm(QgsProcessingAlgorithm):
         )
         self.addParameter(
             QgsProcessingParameterRasterDestination(
-                self.OUTPUT_TEXTURE0,
+                self.OUTPUT_DOD_FILTERED,
                 self.tr('Texture extract from the DOD'),
                 createByDefault=True,
                 defaultValue=None
@@ -112,14 +112,16 @@ class BowlEffectAlgorithm(QgsProcessingAlgorithm):
         )
         self.addParameter(
             QgsProcessingParameterVectorDestination(
-                self.OUTPUT_TEXTURE_0_EXTRACT,
+                self.OUTPUT_DOD_FILTERED_EXTRACT,
                 self.tr('Polygones of non moving areas in DOD'),
+                optional=True
             )
         )
         self.addParameter(
             QgsProcessingParameterVectorDestination(
                 self.OUTPUT_SAMPLE_POINTS,
                 self.tr('Points samples used for interpolation'),
+                optional=True
             )
         )
         self.addParameter(
@@ -127,7 +129,6 @@ class BowlEffectAlgorithm(QgsProcessingAlgorithm):
                 self.OUTPUT_BSPLINE,
                 self.tr('Interpolate raster using bspline'),
                 optional=True,
-                createByDefault=True,
                 defaultValue=None
             )
         )
@@ -149,9 +150,8 @@ class BowlEffectAlgorithm(QgsProcessingAlgorithm):
         # outputs = {}
 
         dod = self.parameterAsRasterLayer(parameters, self.INPUT, context)
-        texture_folder = self.parameterAsString(parameters, self.OUTPUT_TEXTURE_FOLDER, context)
-        raster_0 = self.parameterAsOutputLayer(parameters, self.OUTPUT_TEXTURE0, context)
-        polygon_0 = self.parameterAsOutputLayer(parameters, self.OUTPUT_TEXTURE_0_EXTRACT, context)
+        raster_0 = self.parameterAsOutputLayer(parameters, self.OUTPUT_DOD_FILTERED, context)
+        polygon_0 = self.parameterAsOutputLayer(parameters, self.OUTPUT_DOD_FILTERED_EXTRACT, context)
         sample_points_filter = self.parameterAsOutputLayer(parameters, self.OUTPUT_SAMPLE_POINTS, context)
         interpolated_bspline = self.parameterAsOutputLayer(parameters, self.OUTPUT_BSPLINE, context)
         dod_cleaned = self.parameterAsOutputLayer(parameters, self.OUTPUT_CLEANED, context)
@@ -382,7 +382,7 @@ class BowlEffectAlgorithm(QgsProcessingAlgorithm):
         # dictionary, with keys matching the feature corresponding parameter
         # or output names.
         return {
-            self.OUTPUT_TEXTURE_0_EXTRACT: poly_area_filter_lyr,
+            self.OUTPUT_DOD_FILTERED_EXTRACT: poly_area_filter_lyr,
             self.OUTPUT_SAMPLE_POINTS: sp_pts_filter_lyr,
             self.OUTPUT_BSPLINE: interp_lyr,
             self.OUTPUT_CLEANED: rem_bowl_lyr
