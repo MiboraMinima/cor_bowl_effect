@@ -4,7 +4,6 @@ import re
 def populate_dict(dict_file, input_dir, output_dir, subdir, file, date):
     # Inputs
     input_path = f"'{input_dir}/{subdir}/{file}'"
-    output_texture_folder = f"'{output_dir}/{subdir}/{subdir}_{date}_bowl_details'"
     output_detail = f"{output_dir}/{subdir}/{subdir}_{date}_bowl_details"
 
     # Create the dir if it doesn't exist
@@ -12,17 +11,16 @@ def populate_dict(dict_file, input_dir, output_dir, subdir, file, date):
         os.makedirs(output_detail)
 
     # Outputs
-    output_texture_0 = f"{output_detail}/{subdir}_{date}_texture.tif"
-    output_texture_0_extract = f"{output_detail}/{subdir}_{date}_texture.gpkg"
+    output_dod_filtered = f"{output_detail}/{subdir}_{date}_dod_filtered.tif"
+    output_dod_filtered_extract = f"{output_detail}/{subdir}_{date}_dod_extract.gpkg"
     output_sample_points = f"{output_detail}/{subdir}_{date}_sample_points.gpkg"
-    output_bspline = f"{output_detail}/{subdir}_{date}_bspline.gpkg"
+    output_bspline = f"{output_detail}/{subdir}_{date}_bspline.tif"  # Can't write it in gpkg format
     output_cleaned = f"{output_dir}/{subdir}/{subdir}_{date}_dod_cor_bowl.tif"
 
     # Fill the dictionary with paths
     dict_file['PARAMETERS']['INPUT'] = input_path
-    dict_file['PARAMETERS']['OUTPUT_TEXTURE_FOLDER'] = output_texture_folder
-    dict_file['OUTPUTS']['OUTPUT_TEXTURE0'] = output_texture_0
-    dict_file['OUTPUTS']['OUTPUT_TEXTURE_0_EXTRACT'] = output_texture_0_extract
+    dict_file['OUTPUTS']['OUTPUT_DOD_FILTERED'] = output_dod_filtered
+    dict_file['OUTPUTS']['OUTPUT_DOD_FILTERED_EXTRACT'] = output_dod_filtered_extract
     dict_file['OUTPUTS']['OUTPUT_SAMPLE_POINTS'] = output_sample_points
     dict_file['OUTPUTS']['OUTPUT_BSPLINE'] = output_bspline
     dict_file['OUTPUTS']['OUTPUT_CLEANED'] = output_cleaned
@@ -33,12 +31,11 @@ def populate_dict(dict_file, input_dir, output_dir, subdir, file, date):
 def reset_dict():
     dict_file = {
         "PARAMETERS": {
-            "INPUT": None,
-            "OUTPUT_TEXTURE_FOLDER": None,
+            "INPUT": None
         },
         "OUTPUTS": {
-            "OUTPUT_TEXTURE0": None,
-            "OUTPUT_TEXTURE_0_EXTRACT": None,
+            "OUTPUT_DOD_FILTERED": None,
+            "OUTPUT_DOD_FILTERED_EXTRACT": None,
             "OUTPUT_SAMPLE_POINTS": None,
             "OUTPUT_BSPLINE": None,
             "OUTPUT_CLEANED": None
