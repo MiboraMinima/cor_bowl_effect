@@ -1,15 +1,5 @@
-# TODO: add header
-# TODO: add comments and structure
-
-import json
 import os
 import re
-import argparse
-
-
-# ==========================================
-# Function
-# ==========================================
 
 def populate_dict(dict_file, input_dir, output_dir, subdir, file, date):
     # Inputs
@@ -58,36 +48,33 @@ def reset_dict():
     return dict_file
 
 
-# ==========================================
-# PARAMETERS
-# ==========================================
-
-input_dir = "/media/miboraminima/Windows/Users/antoi/Documents/Savoir/Stages/M2_ISLANDE/TRAITEMENTS/MORPHO/DIFFERENTIEL/RES/RAS/DOD"
-output_dir = "/media/miboraminima/Windows/Users/antoi/Documents/Savoir/Stages/M2_ISLANDE/TRAITEMENTS/MORPHO/DIFFERENTIEL/RES/RAS/DOD_COR_BOWL"
-
-years = ["2015_2016", "2016_2017", "2017_2018"]  # If you want to process all files set to None
-places = None  # ['Katlahraun', 'Selatangar'] # If you want to process all files set to None
-
-# ==========================================
-# PROCESS
-# ==========================================
-
-list_all = []
-for root, dirs, files in os.walk(input_dir):
-    for subdir in dirs:
-        if places and not years:
-            if subdir in places:
-                print(subdir)
-                dict_file = reset_dict()
-                for file in os.listdir(f"{root}/{subdir}"):
-                    print(file)
-                    date = re.search(r'(\d{4}_\d{4})', file).group(1)
-                    dict_res = populate_dict(dict_file, input_dir, output_dir, subdir, file, date)
-                    list_all.append(dict_res)
+def process_files(input_dir, output_dir, years, places):
+    list_all = []
+    for root, dirs, files in os.walk(input_dir):
+        for subdir in dirs:
+            if places and not years:
+                if subdir in places:
+                    print(subdir)
                     dict_file = reset_dict()
+                    for file in os.listdir(f"{root}/{subdir}"):
+                        print(file)
+                        date = re.search(r'(\d{4}_\d{4})', file).group(1)
+                        dict_res = populate_dict(dict_file, input_dir, output_dir, subdir, file, date)
+                        list_all.append(dict_res)
+                        dict_file = reset_dict()
 
-        elif places and years:
-            if subdir in places:
+            elif places and years:
+                if subdir in places:
+                    print(subdir)
+                    dict_file = reset_dict()
+                    for file in os.listdir(f"{root}/{subdir}"):
+                        date = re.search(r'(\d{4}_\d{4})', file).group(1)
+                        if date in years:
+                            print(file)
+                            dict_res = populate_dict(dict_file, input_dir, output_dir, subdir, file, date)
+                            list_all.append(dict_res)
+                            dict_file = reset_dict()
+            elif not places and years:
                 print(subdir)
                 dict_file = reset_dict()
                 for file in os.listdir(f"{root}/{subdir}"):
@@ -97,29 +84,17 @@ for root, dirs, files in os.walk(input_dir):
                         dict_res = populate_dict(dict_file, input_dir, output_dir, subdir, file, date)
                         list_all.append(dict_res)
                         dict_file = reset_dict()
-        elif not places and years:
-            print(subdir)
-            dict_file = reset_dict()
-            for file in os.listdir(f"{root}/{subdir}"):
-                date = re.search(r'(\d{4}_\d{4})', file).group(1)
-                if date in years:
+            else:
+                print(subdir)
+                dict_file = reset_dict()
+                for file in os.listdir(f"{root}/{subdir}"):
                     print(file)
+                    date = re.search(r'(\d{4}_\d{4})', file).group(1)
                     dict_res = populate_dict(dict_file, input_dir, output_dir, subdir, file, date)
                     list_all.append(dict_res)
                     dict_file = reset_dict()
-        else:
-            print(subdir)
-            dict_file = reset_dict()
-            for file in os.listdir(f"{root}/{subdir}"):
-                print(file)
-                date = re.search(r'(\d{4}_\d{4})', file).group(1)
-                dict_res = populate_dict(dict_file, input_dir, output_dir, subdir, file, date)
-                list_all.append(dict_res)
-                dict_file = reset_dict()
 
-print(list_all)
+    print(list_all)
 
-# Write .json parameter file for a batch process in QGIS
-json_path = f"param_gen/params.json"
-with open(json_path, "w") as f:
-    json.dump(list_all, f)  # Dump the data list to the JSON file
+    return list_all
+
