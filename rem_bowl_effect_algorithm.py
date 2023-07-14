@@ -47,24 +47,12 @@ from qgis.analysis import (QgsRasterCalculator,
 from PyQt5.QtCore import QVariant
 from qgis.PyQt.QtWidgets import QMessageBox
 import processing
-import os
-import re
+import geopandas as gpd
+import numpy as np
+
 
 
 class BowlEffectAlgorithm(QgsProcessingAlgorithm):
-    """
-    This is an example algorithm that takes a vector layer and
-    creates a new identical one.
-
-    It is meant to be used as an example of how to create your own
-    algorithms and explain methods and variables used to do it. An
-    algorithm like this will be available in all elements, and there
-    is not need for additional work.
-
-    All Processing algorithms should extend the QgsProcessingAlgorithm
-    class.
-    """
-
     # Constants used to refer to parameters and outputs. They will be
     # used when calling the algorithm from another algorithm, or when
     # calling from the QGIS console.
@@ -94,14 +82,6 @@ class BowlEffectAlgorithm(QgsProcessingAlgorithm):
         )
 
         # OUTPUT
-        self.addParameter(
-            QgsProcessingParameterFile(
-                self.OUTPUT_TEXTURE_FOLDER,
-                self.tr('Dossier de destination de la texture'),
-                behavior=QgsProcessingParameterFile.Folder,
-                fileFilter='Tous les fichiers (*.*)'
-            )
-        )
         self.addParameter(
             QgsProcessingParameterRasterDestination(
                 self.OUTPUT_DOD_FILTERED,
@@ -156,7 +136,31 @@ class BowlEffectAlgorithm(QgsProcessingAlgorithm):
         interpolated_bspline = self.parameterAsOutputLayer(parameters, self.OUTPUT_BSPLINE, context)
         dod_cleaned = self.parameterAsOutputLayer(parameters, self.OUTPUT_CLEANED, context)
 
-        # layer = QgsRasterLayer(dod)
+        # ==========================================
+        # FILTER DOD
+        # ==========================================
+        feedback.pushInfo(" ")
+        feedback.pushInfo("Filtering DOD")
+
+        layer = dod
+
+        entries = []
+        ras = QgsRasterCalculatorEntry()
+        ras.ref = 'dod@1'
+        ras.raster = layer
+        ras.bandNumber = 1
+        entries.append(ras)
+
+        calc = QgsRasterCalculator(
+            "(dod@1 <= 0.30) AND (dod@1 >= -0.30)",  # Expression
+            raster_0,  # Output
+            'GTiff',  # Format
+            layer.extent(), layer.width(), layer.height(),  # Extents
+            entries  # Les rasters en entrées
+        )
+        calc.processCalculation()
+
+        # Retrieve general information about the dod
         ext = dod.extent()
         xmin = ext.xMinimum()
         xmax = ext.xMaximum()
@@ -165,74 +169,69 @@ class BowlEffectAlgorithm(QgsProcessingAlgorithm):
         coords = "%f,%f,%f,%f" % (xmin, xmax, ymin, ymax)  # this is a string that stores the coordinates
         resoX = dod.rasterUnitsPerPixelX()
 
-        feedback.pushInfo(f"{dod}")
-        feedback.pushInfo(f"{coords}")
-        feedback.pushInfo(f"{resoX}")
+        feedback.pushInfo(f"Current resolution of the DOD {resoX}")
 
-        # Texture
+        # -----------------------------------------
+        # Polygonize
+        # -----------------------------------------
+        feedback.pushInfo(" ")
+        feedback.pushInfo("Polygonizing filtered DOD")
+
         alg_params = {
-            'input': dod,
-            'method': [2],  # corr
-            'size': 3,
-            'distance': 1,
+            'input': raster_0,
+            'type': 2,  # area
+            'column': 'DN',
             '-s': False,
-            '-a': False,
-            'output': texture_folder,
-            'GRASS_REGION_PARAMETER': coords,
-            'GRASS_REGION_CELLSIZE_PARAMETER': resoX
+            '-v': False,
+            '-z': False,
+            '-b': False,
+            '-t': False,
+            'output': 'TEMPORARY_OUTPUT',
+            'GRASS_REGION_PARAMETER': None,
+            'GRASS_REGION_CELLSIZE_PARAMETER': 0,
+            'GRASS_OUTPUT_TYPE_PARAMETER': 0,
+            'GRASS_VECTOR_DSCO': '',
+            'GRASS_VECTOR_LCO': '',
+            'GRASS_VECTOR_EXPORT_NOCAT': True
         }
-        processing.run('grass7:r.texture', alg_params, context=context, feedback=feedback)
 
-        if feedback.isCanceled():
-            return {}
-
-        for file in os.listdir(texture_folder):
-            if file.endswith('Corr.tif'):
-                texture_path = f"{texture_folder}/{file}"
-
-        feedback.pushInfo(f"texture path = {texture_path}")
-        feedback.pushInfo(f"raster calc path = {raster_0}")
-
-        # Raster calculator
-        layer = QgsRasterLayer(texture_path)
-
-        entries = []
-        ras = QgsRasterCalculatorEntry()
-        ras.ref = 'texture@1'
-        ras.raster = layer
-        ras.bandNumber = 1
-        entries.append(ras)
-
-        calc = QgsRasterCalculator(
-            "(texture@1 <= 0.2) AND (texture@1 >= -0.2)",  # Expression
-            raster_0,  # Output
-            'GTiff',  # Format
-            layer.extent(), layer.width(), layer.height(),  # Extents
-            entries  # Les rasters en entrées
-        )
-        calc.processCalculation()
-
-        feedback.pushInfo("Raster mask layer generated")
-
-        # Polygonize (raster to vector)
-        alg_params = {
-            'BAND': 1,
-            'EIGHT_CONNECTEDNESS': False,
-            'EXTRA': '',
-            'FIELD': 'DN',
-            'INPUT': raster_0,
-            'OUTPUT': 'TEMPORARY_OUTPUT'
-        }
-        polygons = processing.run('gdal:polygonize',
+        polygons = processing.run("grass7:r.to.vect",
                                   alg_params,
                                   context=context,
                                   feedback=feedback)
-        poly_layer = polygons['OUTPUT']
+        poly_layer = polygons['output']  # Be careful of the name of the output
+
+        # Spatial index
+        feedback.pushInfo(" ")
+        feedback.pushInfo("Generating spatial index")
+        poly_sp = processing.run("native:createspatialindex",
+                                 {'INPUT': poly_layer},
+                                 context=context,
+                                 feedback=feedback)
+        poly_sp_lyr = poly_sp['OUTPUT']
+
+        # -----------------------------------------
+        # Fix geometry
+        # -----------------------------------------
+        feedback.pushInfo(" ")
+        feedback.pushInfo("Reparing geometry of the polygonized layer")
+        # Very long...
+
+        alg_params = {
+            'INPUT': poly_sp_lyr,
+            'METHOD': 1,  # structure method
+            'OUTPUT': 'TEMPORARY_OUTPUT'
+        }
+        poly_fixed = processing.run("native:fixgeometries",
+                                    alg_params,
+                                    context=context,
+                                    feedback=feedback)
+        poly_fixed_lyr = poly_fixed['OUTPUT']
 
         # Extract 0s
         alg_params = {
             'EXPRESSION': '"DN" = 1',
-            'INPUT': poly_layer,
+            'INPUT': poly_fixed_lyr,
             'OUTPUT': 'TEMPORARY_OUTPUT'
         }
         poly_0 = processing.run('native:extractbyexpression',
@@ -241,7 +240,12 @@ class BowlEffectAlgorithm(QgsProcessingAlgorithm):
                                 feedback=feedback)
         poly_0_lyr = poly_0['OUTPUT']
 
-        # Compute area
+        # -----------------------------------------
+        # Compute areas
+        # -----------------------------------------
+        feedback.pushInfo(" ")
+        feedback.pushInfo("Computing area of non moving area")
+
         alg_params = {
             'FIELD_LENGTH': 20,
             'FIELD_NAME': 'area',
@@ -257,7 +261,12 @@ class BowlEffectAlgorithm(QgsProcessingAlgorithm):
                                    feedback=feedback)
         poly_area_lyr = poly_area['OUTPUT']
 
-        # FIlter area to precise location of non moving areas
+        # ------------------------------------------------------
+        # Filter area to precise location of non moving areas
+        # ------------------------------------------------------
+        feedback.pushInfo(" ")
+        feedback.pushInfo("Extract area >= 25 m2, this may take a while...")
+
         alg_params = {
             'EXPRESSION': '"area">=25',
             'INPUT': poly_area_lyr,
@@ -269,7 +278,14 @@ class BowlEffectAlgorithm(QgsProcessingAlgorithm):
                                           feedback=feedback)
         poly_area_filter_lyr = poly_area_filter['OUTPUT']
 
+        # ==========================================
+        # GENERATE SURFACE OF NON MOVING AREAS
+        # ==========================================
         # Random points inside non-moving areas
+        # ------------------------------------------
+        feedback.pushInfo(" ")
+        feedback.pushInfo("Creating random point inside non moving area")
+
         alg_params = {
             'INPUT': poly_area_filter_lyr,
             'MIN_DISTANCE': 0.5,  # minimum distance (e.g. 0.5 m)
@@ -283,7 +299,12 @@ class BowlEffectAlgorithm(QgsProcessingAlgorithm):
                                        feedback=feedback)
         random_points_lyr = random_points['OUTPUT']
 
-        # Get 0 values from DOD
+        # -----------------------------------------
+        # Retrieve values from the DOD
+        # -----------------------------------------
+        feedback.pushInfo(" ")
+        feedback.pushInfo("Passing DOD value to the points")
+
         alg_params = {
             'GRASS_MIN_AREA_PARAMETER': 0.0001,
             'GRASS_OUTPUT_TYPE_PARAMETER': 0,  # auto
@@ -306,9 +327,34 @@ class BowlEffectAlgorithm(QgsProcessingAlgorithm):
                                        feedback=feedback)
         sample_points_lyr = sample_points['output']
 
-        # Filter samples points
+        # -----------------------------------------
+        # Filter points
+        # -----------------------------------------
+        feedback.pushInfo(" ")
+        feedback.pushInfo("Removing outliers from points")
+
+        # Load layer into geopandas dataframe
+        data_gpkg = gpd.read_file(sample_points_lyr)
+        column_data = data_gpkg['rast_val']
+
+        # Calculate the quartiles
+        q1 = np.percentile(column_data, 25)
+        q3 = np.percentile(column_data, 75)
+
+        # Calculate the interquartile range (IQR)
+        iqr = q3 - q1
+
+        # Define the threshold as 1.5 times the IQR
+        threshold = 1.5 * iqr
+
+        # Calculate the upper and lower thresholds
+        upper_threshold = q3 + threshold
+        feedback.pushInfo(f"Current upper threshold is {upper_threshold}")
+        lower_threshold = q1 - threshold
+        feedback.pushInfo(f"Current lower threshold is {lower_threshold}")
+
         alg_params = {
-            'EXPRESSION': '"rast_val" <= 0.25 AND "rast_val" >= -0.25',
+            'EXPRESSION': f'"rast_val" <= {upper_threshold} AND "rast_val" >= {lower_threshold}',
             'INPUT': sample_points_lyr,
             'OUTPUT': sample_points_filter
         }
@@ -317,7 +363,12 @@ class BowlEffectAlgorithm(QgsProcessingAlgorithm):
                                        feedback=feedback)
         sp_pts_filter_lyr = sp_pts_filter['OUTPUT']
 
+        # -------------------------------------------------
         # Create interpolate surfaces from sample points
+        # -------------------------------------------------
+        feedback.pushInfo(" ")
+        feedback.pushInfo("Generating interpolated surface from sample points")
+
         alg_params = {
             'GRASS_MIN_AREA_PARAMETER': 0.0001,
             'GRASS_OUTPUT_TYPE_PARAMETER': 0,  # auto
@@ -333,7 +384,7 @@ class BowlEffectAlgorithm(QgsProcessingAlgorithm):
             'error': 1e-06,
             'ew_step': 1,
             'input': sp_pts_filter_lyr,
-            'lambda_i': 0.1,
+            'lambda_i': 0.75,  # smooth param
             'maxit': 10000,
             'memory': 300,
             'method': 0,  # bilinear
@@ -348,7 +399,14 @@ class BowlEffectAlgorithm(QgsProcessingAlgorithm):
                                 feedback=feedback)
         interp_lyr = interp['raster_output']
 
-        # Difference between bow_effect and DOD
+        # =========================================================
+        # CLEAN THE DOD
+        # =========================================================
+        # Difference between the interpolated surface and the DOD
+        # ---------------------------------------------------------
+        feedback.pushInfo(" ")
+        feedback.pushInfo("Make difference between the DOD and the interpolated surface")
+
         alg_params = {
             'BAND_A': 1,
             'BAND_B': 1,
