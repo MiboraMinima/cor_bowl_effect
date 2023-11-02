@@ -142,24 +142,6 @@ class BowlEffectAlgorithm(QgsProcessingAlgorithm):
         feedback.pushInfo(" ")
         feedback.pushInfo("Filtering DOD")
 
-        layer = dod
-
-        entries = []
-        ras = QgsRasterCalculatorEntry()
-        ras.ref = 'dod@1'
-        ras.raster = layer
-        ras.bandNumber = 1
-        entries.append(ras)
-
-        calc = QgsRasterCalculator(
-            "(dod@1 <= 0.30) AND (dod@1 >= -0.30)",  # Expression
-            raster_0,  # Output
-            'GTiff',  # Format
-            layer.extent(), layer.width(), layer.height(),  # Extents
-            entries  # Les rasters en entrées
-        )
-        calc.processCalculation()
-
         # Retrieve general information about the dod
         ext = dod.extent()
         xmin = ext.xMinimum()
@@ -170,6 +152,22 @@ class BowlEffectAlgorithm(QgsProcessingAlgorithm):
         resoX = dod.rasterUnitsPerPixelX()
 
         feedback.pushInfo(f"Current resolution of the DOD {resoX}")
+
+        entries = []
+        ras = QgsRasterCalculatorEntry()
+        ras.ref = 'dod@1'
+        ras.raster = dod
+        ras.bandNumber = 1
+        entries.append(ras)
+
+        calc = QgsRasterCalculator(
+            "(dod@1 <= 0.30) AND (dod@1 >= -0.30)",  # Expression
+            raster_0,  # Output
+            'GTiff',  # Format
+            dod.extent(), dod.width(), dod.height(),  # Extents
+            entries  # Les rasters en entrées
+        )
+        calc.processCalculation()
 
         # -----------------------------------------
         # Polygonize
@@ -228,7 +226,12 @@ class BowlEffectAlgorithm(QgsProcessingAlgorithm):
                                     feedback=feedback)
         poly_fixed_lyr = poly_fixed['OUTPUT']
 
-        # Extract 0s
+        # -----------------------------------------
+        # Extract 0
+        # -----------------------------------------
+        feedback.pushInfo(" ")
+        feedback.pushInfo("Extracting non moving area from shapefile")
+
         alg_params = {
             'EXPRESSION': '"DN" = 1',
             'INPUT': poly_fixed_lyr,
