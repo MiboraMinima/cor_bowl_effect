@@ -5,9 +5,9 @@ empirical thresholds and generate an interpolated surface (IDW) from points
 sampled in those non-moving areas. The surface is used to correct the bowl
 effect.
 
-> The algorithm will work for DoD generated from MNE containing very coarse
-> sediments like Coastal Boulder Deposits (CBDs). It is not going to works with
-> sandy or gravel beach.
+> The algorithm will work for DoDs generated from DEM containing very coarse
+> sediments like Coastal Boulder Deposits (CBDs). It is not going to work with
+> DoDs created with DEMs of sandy or gravel beach.
 
 ## Install
 
