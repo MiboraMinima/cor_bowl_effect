@@ -1,3 +1,4 @@
+.gitignore
 param_gen/params.json
 .idea/
 __pycache__/
