@@ -47,7 +47,7 @@ the example :
 ```
 
 If you have a similar directory, you can run a similar command in your
-terminal : 
+terminal (run it at the root of the repo) : 
 
 ```shell
 python -m param_gen.gen_param "input/dir/DODs" "output/dir/results" "param_gen/params.json" --years 2015_2016 --places Site_1 Site_2
