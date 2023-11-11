@@ -9,6 +9,8 @@ effect.
 > sediments like Coastal Boulder Deposits (CBDs). It is not going to work with
 > DoDs created with DEMs of sandy or gravel beach.
 
+This is an **experimental plugin**.
+
 ## Install
 
 Download the repository as `.zip`. Open QGIS and install the plugin : 
